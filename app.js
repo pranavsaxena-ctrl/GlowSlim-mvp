@@ -671,9 +671,10 @@ function readLaunchParams() {
 }
 
 function readStoredJson(key) {
+  const value = safeLocalStorageGet(key);
+  if (!value) return null;
   try {
-    const value = window.localStorage.getItem(key);
-    return value ? JSON.parse(value) : null;
+    return JSON.parse(value);
   } catch (error) {
     console.warn(`Could not read ${key}`, error);
     return null;
@@ -681,12 +682,33 @@ function readStoredJson(key) {
 }
 
 function saveJson(key, value) {
+  return safeLocalStorageSet(key, JSON.stringify(value));
+}
+
+function safeLocalStorageGet(key) {
   try {
-    window.localStorage.setItem(key, JSON.stringify(value));
+    return window.localStorage.getItem(key);
+  } catch (error) {
+    console.warn(`Could not access local storage for ${key}`, error);
+    return null;
+  }
+}
+
+function safeLocalStorageSet(key, value) {
+  try {
+    window.localStorage.setItem(key, value);
     return true;
   } catch (error) {
     console.warn(`Could not save ${key}`, error);
     return false;
+  }
+}
+
+function safeLocalStorageRemove(key) {
+  try {
+    window.localStorage.removeItem(key);
+  } catch (error) {
+    console.warn(`Could not remove ${key}`, error);
   }
 }
 
@@ -2261,7 +2283,7 @@ Do not create six-pack abs unless explicitly requested. Do not change the face i
 }
 
 async function requestOpenAiBmiPreview(sourcePhoto, currentBmi) {
-  const configuredEndpoint = window.NEWME_IMAGE_GENERATION_ENDPOINT || window.localStorage.getItem('newme_image_generation_endpoint');
+  const configuredEndpoint = window.NEWME_IMAGE_GENERATION_ENDPOINT || safeLocalStorageGet('newme_image_generation_endpoint');
   const endpoint = configuredEndpoint || (window.location.protocol === 'file:' ? REMOTE_BMI_PREVIEW_ENDPOINT : '/api/bmi-preview');
   const requestBody = buildBmiPreviewRequest(sourcePhoto, currentBmi, '22');
   const fetchPreview = (url) => fetch(url, {
@@ -4713,7 +4735,7 @@ document.addEventListener('click', async (event) => {
         generatedSrc = await requestOpenAiBmiPreview(currentPhoto, appState.progress.currentBmi);
       } catch (error) {
         generationSource = 'endpoint_required';
-        appState.progress.bmiPreviewError = `${error.message || 'Connect /api/bmi-preview to OpenAI image generation.'} No fake compressed fallback was created.`;
+        appState.progress.bmiPreviewError = error.message || 'Could not generate the BMI 22 preview. Please reload and try again.';
       }
 
       if (generatedSrc) {
@@ -5121,20 +5143,7 @@ document.addEventListener('click', async (event) => {
   }
 
   if (action.dataset.action === 'reset-demo') {
-    window.localStorage.removeItem(STORAGE_KEYS.attribution);
-    window.localStorage.removeItem(STORAGE_KEYS.onboarding);
-    window.localStorage.removeItem(STORAGE_KEYS.safety);
-    window.localStorage.removeItem(STORAGE_KEYS.recommendation);
-    window.localStorage.removeItem(STORAGE_KEYS.profile);
-    window.localStorage.removeItem(STORAGE_KEYS.daily);
-    window.localStorage.removeItem(STORAGE_KEYS.progress);
-    window.localStorage.removeItem(STORAGE_KEYS.care);
-    window.localStorage.removeItem(STORAGE_KEYS.treatment);
-    window.localStorage.removeItem(STORAGE_KEYS.triage);
-    window.localStorage.removeItem(STORAGE_KEYS.consent);
-    window.localStorage.removeItem(STORAGE_KEYS.foodAgent);
-    window.localStorage.removeItem(STORAGE_KEYS.commerceAgent);
-    window.localStorage.removeItem(STORAGE_KEYS.beta);
+    Object.values(STORAGE_KEYS).forEach((key) => safeLocalStorageRemove(key));
     profileSheet.close();
     appState.stage = 'landing';
     appState.onboardingStep = 0;
