@@ -17,6 +17,7 @@
   --shadow-nav: 0 -12px 28px rgba(22, 35, 35, 0.08);
   --radius-card: 28px;
   --radius-control: 999px;
+  --app-shell-max: 480px;
   --space-screen: clamp(18px, 5vw, 36px);
   --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
@@ -27,11 +28,15 @@
 
 html {
   min-height: 100%;
+  min-height: 100svh;
   background: #eef5f3;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
   min-height: 100%;
+  min-height: 100svh;
   margin: 0;
   color: var(--color-ink);
   font-family: var(--font-sans);
@@ -39,6 +44,8 @@ body {
     radial-gradient(circle at 8% 0%, rgba(215, 244, 236, 0.66), transparent 34%),
     radial-gradient(circle at 100% 18%, rgba(255, 231, 167, 0.44), transparent 30%),
     var(--color-canvas);
+  overflow-x: hidden;
+  overscroll-behavior-y: none;
 }
 
 body *[hidden] {
@@ -60,19 +67,36 @@ button {
   font: inherit;
 }
 
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
+input,
+select,
+textarea,
+button {
+  max-width: 100%;
+}
+
 .app-shell {
   position: relative;
-  width: min(100%, 480px);
+  width: 100%;
+  max-width: var(--app-shell-max);
   min-height: 100vh;
+  min-height: 100svh;
   margin: 0 auto;
   background: linear-gradient(180deg, rgba(226, 247, 239, 0.48) 0, var(--color-canvas) 230px);
   box-shadow: 0 0 0 1px rgba(14, 65, 60, 0.04), 0 26px 70px rgba(17, 43, 42, 0.12);
-  overflow: hidden;
+  overflow-x: hidden;
 }
 
 .screen {
   min-height: 100vh;
-  padding: 40px var(--space-screen) 118px;
+  min-height: 100svh;
+  padding: calc(32px + env(safe-area-inset-top)) var(--space-screen) calc(118px + env(safe-area-inset-bottom));
 }
 
 .screen.flow-screen {
@@ -622,6 +646,7 @@ svg {
   align-items: center;
   justify-content: center;
   gap: 10px;
+  min-width: 0;
   min-height: 58px;
   padding: 0 22px;
   border: 1px solid transparent;
@@ -631,6 +656,7 @@ svg {
   cursor: pointer;
   font-size: 1rem;
   font-weight: 850;
+  text-align: center;
 }
 
 .cta.secondary {
@@ -1579,7 +1605,8 @@ svg {
   z-index: 20;
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  width: min(100%, 480px);
+  width: 100%;
+  max-width: var(--app-shell-max);
   min-height: 88px;
   padding: 9px 10px calc(9px + env(safe-area-inset-bottom));
   transform: translateX(-50%);
@@ -1645,7 +1672,7 @@ svg {
 
 .profile-sheet {
   width: min(calc(100% - 28px), 440px);
-  max-height: min(720px, calc(100vh - 40px));
+  max-height: min(720px, calc(100svh - 40px));
   padding: 0;
   border: 1px solid var(--color-faint);
   border-radius: 28px;
@@ -1731,7 +1758,20 @@ svg {
   background: rgba(255, 255, 255, 0.62);
 }
 
-@media (max-width: 360px) {
+@supports (min-height: 100dvh) {
+  html,
+  body,
+  .app-shell,
+  .screen {
+    min-height: 100dvh;
+  }
+
+  .profile-sheet {
+    max-height: min(720px, calc(100dvh - 40px));
+  }
+}
+
+@media (max-width: 430px) {
   .screen {
     padding-inline: 16px;
   }
@@ -1792,17 +1832,50 @@ svg {
 }
 
 @media (min-width: 720px) {
+  :root {
+    --app-shell-max: 100%;
+    --space-screen: clamp(24px, 5vw, 56px);
+  }
+
+  .app-shell {
+    box-shadow: none;
+  }
+
+  .bottom-nav {
+    border-radius: 0;
+  }
+}
+
+@media (min-width: 1180px) {
+  :root {
+    --app-shell-max: 1040px;
+  }
+
   body {
     padding: 28px 0;
   }
 
   .app-shell {
-    min-height: calc(100vh - 56px);
+    min-height: calc(100svh - 56px);
     border-radius: 34px;
+    box-shadow: 0 0 0 1px rgba(14, 65, 60, 0.04), 0 26px 70px rgba(17, 43, 42, 0.12);
+  }
+
+  .screen {
+    min-height: calc(100svh - 56px);
   }
 
   .bottom-nav {
     bottom: 28px;
     border-radius: 0 0 34px 34px;
+  }
+}
+
+@supports (min-height: 100dvh) {
+  @media (min-width: 1180px) {
+    .app-shell,
+    .screen {
+      min-height: calc(100dvh - 56px);
+    }
   }
 }
