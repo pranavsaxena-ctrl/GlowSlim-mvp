@@ -225,6 +225,9 @@ const learnResourceLinks = [
 ];
 const healthyMealPrompt = 'I am on weight reduction plan. I eat high porotien low carb food. Daily calorie restriction is 1600Cal, No forzen or fried food. No spicy food. No gluten.';
 const swiggyDietRules = ['High protein', 'Low carb', '1600Cal daily limit', 'No frozen food', 'No fried food', 'No spicy food', 'No gluten'];
+const REMOTE_BMI_PREVIEW_ENDPOINT = 'https://glow-slim-mvp.vercel.app/api/bmi-preview';
+const MAX_UPLOAD_DIMENSION = 1400;
+const UPLOAD_JPEG_QUALITY = 0.86;
 const swiggyOrderShortlist = [
   {
     title: 'Gluten-free grilled protein bowl',
@@ -678,7 +681,70 @@ function readStoredJson(key) {
 }
 
 function saveJson(key, value) {
-  window.localStorage.setItem(key, JSON.stringify(value));
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch (error) {
+    console.warn(`Could not save ${key}`, error);
+    return false;
+  }
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener('load', () => resolve(String(reader.result || '')));
+    reader.addEventListener('error', () => reject(new Error('Could not read the selected photo.')));
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadImageFromDataUrl(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.addEventListener('load', () => resolve(image));
+    image.addEventListener('error', () => reject(new Error('Could not decode this image. Try a JPG, PNG, WebP, HEIC, or HEIF photo.')));
+    image.src = dataUrl;
+  });
+}
+
+function canvasToDataUrl(canvas, quality = UPLOAD_JPEG_QUALITY) {
+  try {
+    return canvas.toDataURL('image/jpeg', quality);
+  } catch (error) {
+    console.warn('Could not compress photo on canvas', error);
+    return '';
+  }
+}
+
+async function prepareMirrorPhotoDataUrl(file) {
+  if (!file || !/^image\//i.test(file.type || '')) {
+    throw new Error('Please choose an image file.');
+  }
+
+  const rawDataUrl = await readFileAsDataUrl(file);
+  const image = await loadImageFromDataUrl(rawDataUrl);
+  const width = image.naturalWidth || image.width;
+  const height = image.naturalHeight || image.height;
+  if (!width || !height) {
+    throw new Error('Could not read photo dimensions.');
+  }
+
+  const scale = Math.min(1, MAX_UPLOAD_DIMENSION / Math.max(width, height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(width * scale));
+  canvas.height = Math.max(1, Math.round(height * scale));
+  const context = canvas.getContext('2d', { alpha: false });
+  if (!context) {
+    return rawDataUrl;
+  }
+
+  context.fillStyle = '#ffffff';
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+  const compressed = canvasToDataUrl(canvas);
+  return compressed || rawDataUrl;
 }
 
 function repairBmiPreviewState(progress) {
@@ -2195,13 +2261,24 @@ Do not create six-pack abs unless explicitly requested. Do not change the face i
 }
 
 async function requestOpenAiBmiPreview(sourcePhoto, currentBmi) {
-  const endpoint = window.NEWME_IMAGE_GENERATION_ENDPOINT || window.localStorage.getItem('newme_image_generation_endpoint') || '/api/bmi-preview';
+  const configuredEndpoint = window.NEWME_IMAGE_GENERATION_ENDPOINT || window.localStorage.getItem('newme_image_generation_endpoint');
+  const endpoint = configuredEndpoint || (window.location.protocol === 'file:' ? REMOTE_BMI_PREVIEW_ENDPOINT : '/api/bmi-preview');
   const requestBody = buildBmiPreviewRequest(sourcePhoto, currentBmi, '22');
-  const response = await fetch(endpoint, {
+  const fetchPreview = (url) => fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(requestBody)
   });
+
+  let response;
+  try {
+    response = await fetchPreview(endpoint);
+  } catch (error) {
+    if (configuredEndpoint || endpoint === REMOTE_BMI_PREVIEW_ENDPOINT) {
+      throw error;
+    }
+    response = await fetchPreview(REMOTE_BMI_PREVIEW_ENDPOINT);
+  }
 
   let payload = {};
   try {
@@ -2211,11 +2288,29 @@ async function requestOpenAiBmiPreview(sourcePhoto, currentBmi) {
   }
 
   if (!response.ok) {
+    if (!configuredEndpoint && endpoint !== REMOTE_BMI_PREVIEW_ENDPOINT && [404, 405, 501].includes(response.status)) {
+      return requestOpenAiBmiPreviewWithEndpoint(REMOTE_BMI_PREVIEW_ENDPOINT, requestBody);
+    }
     const detail = typeof payload.detail === 'string' ? payload.detail : payload.detail?.error?.message;
     const message = [payload.error, detail].filter(Boolean).join(' ') || `Image endpoint returned ${response.status}`;
     throw new Error(message);
   }
 
+  return payload.imageDataUrl || payload.image_url || payload.url || '';
+}
+
+async function requestOpenAiBmiPreviewWithEndpoint(endpoint, requestBody) {
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(requestBody)
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const detail = typeof payload.detail === 'string' ? payload.detail : payload.detail?.error?.message;
+    const message = [payload.error, detail].filter(Boolean).join(' ') || `Image endpoint returned ${response.status}`;
+    throw new Error(message);
+  }
   return payload.imageDataUrl || payload.image_url || payload.url || '';
 }
 
@@ -2874,6 +2969,11 @@ function renderTreatmentTrackerCard() {
   `, treatment.doseStatus === 'paused' ? 'safety-urgent' : treatment.doseStatus === 'locked' ? 'lilac' : '');
 }
 
+function renderPhotoUploadCta(label, variant = '') {
+  const classes = ['cta', variant].filter(Boolean).join(' ');
+  return `<label class="${classes}" for="mirror-photo-input">${icon('camera')} ${escapeHtml(label)}</label>`;
+}
+
 function renderMirrorMoment() {
   const progress = mockData.progress;
   const hasPhotoToday = progress.photos.some((photo) => photo.date === PROTOTYPE_TODAY);
@@ -2887,7 +2987,7 @@ function renderMirrorMoment() {
       </div>
     </div>
     <div class="cta-row">
-      <button class="cta" type="button" data-action="add-mirror-photo">${icon('camera')} Add this week's photo</button>
+      ${renderPhotoUploadCta("Add this week's photo")}
       <button class="cta secondary" type="button" data-action="toggle-photo-compare">${progress.compareMode ? 'Close compare' : 'Compare'}</button>
     </div>
   `);
@@ -3136,7 +3236,7 @@ function renderMirrorSummaryCard() {
       </div>
     </div>
     <div class="cta-row">
-      <button class="cta" type="button" data-action="add-mirror-photo">${icon('camera')} Add photo</button>
+      ${renderPhotoUploadCta('Add photo')}
       <button class="cta secondary" type="button" data-action="toggle-photo-compare">${progress.compareMode ? 'Close compare' : 'Compare'}</button>
     </div>
   `);
@@ -3250,7 +3350,7 @@ function renderPhotoVault() {
       <span class="icon-disc teal">${icon('lock')}</span>
     </div>
     <div class="cta-row">
-      <button class="cta" type="button" data-action="add-mirror-photo">${icon('camera')} Upload current photo</button>
+      ${renderPhotoUploadCta('Upload current photo')}
       <button class="cta secondary" type="button" data-action="toggle-photo-compare">${mockData.progress.compareMode ? 'Close compare' : 'Compare'}</button>
     </div>
     <div class="photo-grid">${cards}</div>
@@ -3291,7 +3391,7 @@ function renderBmiPreviewCard() {
     <p class="privacy-note">${icon('lock')} This is an illustrative preview, not a guaranteed result. Actual results vary by body type, health status, fat distribution, muscle mass, genetics, and plan adherence.</p>
     <div class="cta-row">
       <button class="cta" type="button" data-action="generate-bmi-preview" ${hasSourceImage && !isGenerating ? '' : 'disabled'}>${icon('sparkle')} ${isGenerating ? 'Generating...' : 'Generate BMI 22 preview'}</button>
-      <button class="cta secondary" type="button" data-action="add-mirror-photo">Upload photo</button>
+      ${renderPhotoUploadCta('Upload photo', 'secondary')}
     </div>
     <details class="prompt-details">
       <summary>OpenAI image prompt spec</summary>
@@ -4125,12 +4225,12 @@ document.addEventListener('change', (event) => {
 });
 
 if (mirrorPhotoInput) {
-  mirrorPhotoInput.addEventListener('change', (event) => {
+  mirrorPhotoInput.addEventListener('change', async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.addEventListener('load', () => {
+    try {
+      const preparedDataUrl = await prepareMirrorPhotoDataUrl(file);
       const nextIndex = appState.progress.photos.length + 1;
       const angle = nextIndex % 2 === 0 ? 'Side' : 'Front';
       const currentBmi = appState.progress.currentBmi || calculateBmi()?.toFixed(1) || '';
@@ -4142,12 +4242,14 @@ if (mirrorPhotoInput) {
         privacy: 'Private upload',
         tone: angle === 'Front' ? 'mint' : 'blue',
         kind: 'upload',
-        src: String(reader.result || ''),
+        src: preparedDataUrl,
         bmi: currentBmi
       };
       appState.progress.photos = [...appState.progress.photos, newPhoto];
       appState.progress.currentPhotoId = newPhoto.id;
       appState.progress.generatedIdealPhoto = null;
+      appState.progress.bmiPreviewStatus = 'idle';
+      appState.progress.bmiPreviewError = '';
       appState.progress.lastUpdated = new Date().toISOString();
       saveJson(STORAGE_KEYS.progress, appState.progress);
       logEvent('newme_mirror_photo_added', {
@@ -4157,8 +4259,14 @@ if (mirrorPhotoInput) {
       });
       render();
       event.target.value = '';
-    });
-    reader.readAsDataURL(file);
+    } catch (error) {
+      appState.progress.bmiPreviewStatus = 'error';
+      appState.progress.bmiPreviewError = error.message || 'Could not upload this photo.';
+      appState.progress.lastUpdated = new Date().toISOString();
+      saveJson(STORAGE_KEYS.progress, appState.progress);
+      render();
+      event.target.value = '';
+    }
   });
 }
 

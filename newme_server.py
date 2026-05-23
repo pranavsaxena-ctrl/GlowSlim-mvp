@@ -23,6 +23,9 @@ SYSTEM_CERT_FILE = "/etc/ssl/cert.pem"
 def json_response(handler, status, payload):
   encoded = json.dumps(payload).encode("utf-8")
   handler.send_response(status)
+  handler.send_header("Access-Control-Allow-Origin", "*")
+  handler.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
+  handler.send_header("Access-Control-Allow-Headers", "Content-Type")
   handler.send_header("Content-Type", "application/json")
   handler.send_header("Content-Length", str(len(encoded)))
   handler.end_headers()
@@ -153,6 +156,13 @@ class NewMeHandler(SimpleHTTPRequestHandler):
   def end_headers(self):
     self.send_header("Cache-Control", "no-store")
     super().end_headers()
+
+  def do_OPTIONS(self):
+    self.send_response(204)
+    self.send_header("Access-Control-Allow-Origin", "*")
+    self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
+    self.send_header("Access-Control-Allow-Headers", "Content-Type")
+    self.end_headers()
 
   def do_POST(self):
     if self.path != "/api/bmi-preview":

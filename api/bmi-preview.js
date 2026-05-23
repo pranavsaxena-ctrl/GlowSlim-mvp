@@ -5,8 +5,15 @@ const DEFAULT_SIZE = 'auto';
 const DEFAULT_OUTPUT_FORMAT = 'jpeg';
 const MAX_IMAGE_BYTES = 50 * 1024 * 1024;
 
+function setCors(res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+}
+
 function json(res, status, payload) {
   res.statusCode = status;
+  setCors(res);
   res.setHeader('Content-Type', 'application/json');
   res.end(JSON.stringify(payload));
 }
@@ -46,6 +53,13 @@ function parseDataUrl(value) {
 }
 
 module.exports = async function handler(req, res) {
+  if (req.method === 'OPTIONS') {
+    setCors(res);
+    res.statusCode = 204;
+    res.end();
+    return;
+  }
+
   if (req.method !== 'POST') {
     json(res, 405, { error: 'Method not allowed.' });
     return;
