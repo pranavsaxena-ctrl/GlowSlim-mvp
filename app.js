@@ -538,6 +538,7 @@ const profileTitle = document.querySelector('#profile-title');
 const profileContent = document.querySelector('#profile-content');
 const mirrorPhotoInput = document.querySelector('#mirror-photo-input');
 
+const storageUsable = canUseLocalStorage();
 const initialLaunch = readLaunchParams();
 const storedAttribution = readStoredJson(STORAGE_KEYS.attribution);
 const storedOnboarding = readStoredJson(STORAGE_KEYS.onboarding);
@@ -553,9 +554,11 @@ const storedConsent = readStoredJson(STORAGE_KEYS.consent);
 const storedFoodAgent = readStoredJson(STORAGE_KEYS.foodAgent);
 const storedCommerceAgent = readStoredJson(STORAGE_KEYS.commerceAgent);
 const storedBeta = readStoredJson(STORAGE_KEYS.beta);
+const shouldOpenAppShell = !initialLaunch.hasLaunchParams && (window.location.protocol === 'file:' || !storageUsable);
+const initialStage = shouldOpenAppShell ? 'app' : (initialLaunch.hasLaunchParams || !storedOnboarding ? 'landing' : (!storedSafety || !storedRecommendation ? 'safety' : 'app'));
 
 const appState = {
-  stage: initialLaunch.hasLaunchParams || !storedOnboarding ? 'landing' : (!storedSafety || !storedRecommendation ? 'safety' : 'app'),
+  stage: initialStage,
   onboardingStep: 0,
   safetyStep: 0,
   validationMessage: '',
@@ -685,7 +688,20 @@ function saveJson(key, value) {
   return safeLocalStorageSet(key, JSON.stringify(value));
 }
 
+function canUseLocalStorage() {
+  try {
+    const testKey = '__glowslim_storage_test__';
+    window.localStorage.setItem(testKey, '1');
+    window.localStorage.removeItem(testKey);
+    return true;
+  } catch (error) {
+    console.warn('Local storage is unavailable; using in-memory demo state.', error);
+    return false;
+  }
+}
+
 function safeLocalStorageGet(key) {
+  if (!storageUsable) return null;
   try {
     return window.localStorage.getItem(key);
   } catch (error) {
@@ -695,6 +711,7 @@ function safeLocalStorageGet(key) {
 }
 
 function safeLocalStorageSet(key, value) {
+  if (!storageUsable) return false;
   try {
     window.localStorage.setItem(key, value);
     return true;
@@ -705,6 +722,7 @@ function safeLocalStorageSet(key, value) {
 }
 
 function safeLocalStorageRemove(key) {
+  if (!storageUsable) return;
   try {
     window.localStorage.removeItem(key);
   } catch (error) {
