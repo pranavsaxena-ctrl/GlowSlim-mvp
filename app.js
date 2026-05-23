@@ -623,6 +623,8 @@ if (
   saveJson(STORAGE_KEYS.progress, appState.progress);
 }
 
+repairBmiPreviewState(appState.progress);
+
 hydrateMockData();
 
 function icon(name) {
@@ -677,6 +679,38 @@ function readStoredJson(key) {
 
 function saveJson(key, value) {
   window.localStorage.setItem(key, JSON.stringify(value));
+}
+
+function repairBmiPreviewState(progress) {
+  if (!progress) return;
+
+  const photos = Array.isArray(progress.photos) ? progress.photos : [];
+  const currentPhoto = photos.find((photo) => photo.id === progress.currentPhotoId) || photos[photos.length - 1] || null;
+  const hasSourceImage = Boolean(currentPhoto?.src);
+  const status = progress.bmiPreviewStatus || 'idle';
+  let changed = false;
+
+  if (status === 'generating') {
+    progress.bmiPreviewStatus = 'idle';
+    progress.bmiPreviewError = '';
+    changed = true;
+  }
+
+  if (progress.bmiPreviewStatus === 'ready' && !progress.generatedIdealPhoto) {
+    progress.bmiPreviewStatus = 'idle';
+    progress.bmiPreviewSource = '';
+    changed = true;
+  }
+
+  if (!hasSourceImage && ['generating', 'error'].includes(progress.bmiPreviewStatus)) {
+    progress.bmiPreviewStatus = 'idle';
+    progress.bmiPreviewError = '';
+    changed = true;
+  }
+
+  if (changed) {
+    saveJson(STORAGE_KEYS.progress, progress);
+  }
 }
 
 function createDefaultDailyState() {
