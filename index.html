@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>GlowSlim MVP</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <div class="app-shell" id="app" data-testid="newme-app">
+      <main class="screen" id="screen" tabindex="-1"></main>
+      <nav class="bottom-nav" aria-label="Primary navigation" id="bottom-nav"></nav>
+      <input class="visually-hidden-file" id="mirror-photo-input" type="file" accept="image/*" aria-hidden="true">
+    </div>
+
+    <dialog class="profile-sheet" id="profile-sheet" aria-labelledby="profile-title">
+      <div class="sheet-header">
+        <div>
+          <p class="eyebrow">Profile</p>
+          <h2 id="profile-title">Aanya's GlowSlim setup</h2>
+        </div>
+        <button class="icon-button ghost" type="button" data-action="close-profile" aria-label="Close profile">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M6 6l12 12M18 6 6 18"></path>
+          </svg>
+        </button>
+      </div>
+      <div class="sheet-grid" id="profile-content"></div>
+    </dialog>
+
+    <script src="./app.js" defer></script>
+  </body>
+</html>
