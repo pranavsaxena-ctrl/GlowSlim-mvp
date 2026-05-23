@@ -226,8 +226,8 @@ const learnResourceLinks = [
 const healthyMealPrompt = 'I am on weight reduction plan. I eat high porotien low carb food. Daily calorie restriction is 1600Cal, No forzen or fried food. No spicy food. No gluten.';
 const swiggyDietRules = ['High protein', 'Low carb', '1600Cal daily limit', 'No frozen food', 'No fried food', 'No spicy food', 'No gluten'];
 const REMOTE_BMI_PREVIEW_ENDPOINT = 'https://glow-slim-mvp.vercel.app/api/bmi-preview';
-const MAX_UPLOAD_DIMENSION = 1400;
-const UPLOAD_JPEG_QUALITY = 0.86;
+const MAX_UPLOAD_DIMENSION = 1024;
+const UPLOAD_JPEG_QUALITY = 0.78;
 const swiggyOrderShortlist = [
   {
     title: 'Gluten-free grilled protein bowl',
@@ -2970,8 +2970,13 @@ function renderTreatmentTrackerCard() {
 }
 
 function renderPhotoUploadCta(label, variant = '') {
-  const classes = ['cta', variant].filter(Boolean).join(' ');
-  return `<label class="${classes}" for="mirror-photo-input">${icon('camera')} ${escapeHtml(label)}</label>`;
+  const classes = ['cta', 'upload-file-label', variant].filter(Boolean).join(' ');
+  return `
+    <label class="${classes}">
+      <input class="upload-file-control" type="file" accept="image/png,image/jpeg,image/jpg,image/webp,image/heic,image/heif" aria-label="${escapeHtml(label)}">
+      ${icon('camera')} ${escapeHtml(label)}
+    </label>
+  `;
 }
 
 function renderMirrorMoment() {
@@ -4224,51 +4229,55 @@ document.addEventListener('change', (event) => {
   }
 });
 
-if (mirrorPhotoInput) {
-  mirrorPhotoInput.addEventListener('change', async (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+async function handleMirrorPhotoFileInput(input) {
+  const file = input?.files?.[0];
+  if (!file) return;
 
-    try {
-      const preparedDataUrl = await prepareMirrorPhotoDataUrl(file);
-      const nextIndex = appState.progress.photos.length + 1;
-      const angle = nextIndex % 2 === 0 ? 'Side' : 'Front';
-      const currentBmi = appState.progress.currentBmi || calculateBmi()?.toFixed(1) || '';
-      const newPhoto = {
-        id: `photo-upload-${Date.now()}`,
-        date: PROTOTYPE_TODAY,
-        angle,
-        label: `Current photo ${nextIndex}`,
-        privacy: 'Private upload',
-        tone: angle === 'Front' ? 'mint' : 'blue',
-        kind: 'upload',
-        src: preparedDataUrl,
-        bmi: currentBmi
-      };
-      appState.progress.photos = [...appState.progress.photos, newPhoto];
-      appState.progress.currentPhotoId = newPhoto.id;
-      appState.progress.generatedIdealPhoto = null;
-      appState.progress.bmiPreviewStatus = 'idle';
-      appState.progress.bmiPreviewError = '';
-      appState.progress.lastUpdated = new Date().toISOString();
-      saveJson(STORAGE_KEYS.progress, appState.progress);
-      logEvent('newme_mirror_photo_added', {
-        angle,
-        photoCount: appState.progress.photos.length,
-        source: 'upload'
-      });
-      render();
-      event.target.value = '';
-    } catch (error) {
-      appState.progress.bmiPreviewStatus = 'error';
-      appState.progress.bmiPreviewError = error.message || 'Could not upload this photo.';
-      appState.progress.lastUpdated = new Date().toISOString();
-      saveJson(STORAGE_KEYS.progress, appState.progress);
-      render();
-      event.target.value = '';
-    }
-  });
+  try {
+    const preparedDataUrl = await prepareMirrorPhotoDataUrl(file);
+    const nextIndex = appState.progress.photos.length + 1;
+    const angle = nextIndex % 2 === 0 ? 'Side' : 'Front';
+    const currentBmi = appState.progress.currentBmi || calculateBmi()?.toFixed(1) || '';
+    const newPhoto = {
+      id: `photo-upload-${Date.now()}`,
+      date: PROTOTYPE_TODAY,
+      angle,
+      label: `Current photo ${nextIndex}`,
+      privacy: 'Private upload',
+      tone: angle === 'Front' ? 'mint' : 'blue',
+      kind: 'upload',
+      src: preparedDataUrl,
+      bmi: currentBmi
+    };
+    appState.progress.photos = [...appState.progress.photos, newPhoto];
+    appState.progress.currentPhotoId = newPhoto.id;
+    appState.progress.generatedIdealPhoto = null;
+    appState.progress.bmiPreviewStatus = 'idle';
+    appState.progress.bmiPreviewError = '';
+    appState.progress.lastUpdated = new Date().toISOString();
+    saveJson(STORAGE_KEYS.progress, appState.progress);
+    logEvent('newme_mirror_photo_added', {
+      angle,
+      photoCount: appState.progress.photos.length,
+      source: 'upload'
+    });
+    render();
+  } catch (error) {
+    appState.progress.bmiPreviewStatus = 'error';
+    appState.progress.bmiPreviewError = error.message || 'Could not upload this photo.';
+    appState.progress.lastUpdated = new Date().toISOString();
+    saveJson(STORAGE_KEYS.progress, appState.progress);
+    render();
+  } finally {
+    input.value = '';
+  }
 }
+
+document.addEventListener('change', (event) => {
+  if (event.target.matches('#mirror-photo-input, .upload-file-control')) {
+    handleMirrorPhotoFileInput(event.target);
+  }
+});
 
 document.addEventListener('click', async (event) => {
   const action = event.target.closest('[data-action]');
