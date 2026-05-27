@@ -225,6 +225,7 @@ const learnResourceLinks = [
 ];
 const healthyMealPrompt = 'I am on weight reduction plan. I eat high porotien low carb food. Daily calorie restriction is 1600Cal, No forzen or fried food. No spicy food. No gluten.';
 const swiggyDietRules = ['High protein', 'Low carb', '1600Cal daily limit', 'No frozen food', 'No fried food', 'No spicy food', 'No gluten'];
+const LOCAL_BMI_PREVIEW_ENDPOINT = 'http://127.0.0.1:8082/api/bmi-preview';
 const REMOTE_BMI_PREVIEW_ENDPOINT = 'https://glow-slim-mvp.vercel.app/api/bmi-preview';
 const MAX_UPLOAD_DIMENSION = 1024;
 const UPLOAD_JPEG_QUALITY = 0.78;
@@ -2301,7 +2302,11 @@ Do not create six-pack abs unless explicitly requested. Do not change the face i
 
 async function requestOpenAiBmiPreview(sourcePhoto, currentBmi) {
   const configuredEndpoint = window.NEWME_IMAGE_GENERATION_ENDPOINT || safeLocalStorageGet('newme_image_generation_endpoint');
-  const endpoint = configuredEndpoint || (window.location.protocol === 'file:' ? REMOTE_BMI_PREVIEW_ENDPOINT : '/api/bmi-preview');
+  const endpoints = configuredEndpoint
+    ? [configuredEndpoint]
+    : window.location.protocol === 'file:'
+      ? [LOCAL_BMI_PREVIEW_ENDPOINT, REMOTE_BMI_PREVIEW_ENDPOINT]
+      : ['/api/bmi-preview', REMOTE_BMI_PREVIEW_ENDPOINT];
   const requestBody = buildBmiPreviewRequest(sourcePhoto, currentBmi, '22');
   const fetchPreview = (url) => fetch(url, {
     method: 'POST',
@@ -2309,33 +2314,40 @@ async function requestOpenAiBmiPreview(sourcePhoto, currentBmi) {
     body: JSON.stringify(requestBody)
   });
 
-  let response;
-  try {
-    response = await fetchPreview(endpoint);
-  } catch (error) {
-    if (configuredEndpoint || endpoint === REMOTE_BMI_PREVIEW_ENDPOINT) {
-      throw error;
+  let lastError = null;
+  for (const endpoint of endpoints) {
+    let response;
+    try {
+      response = await fetchPreview(endpoint);
+    } catch (error) {
+      lastError = new Error(`Could not reach BMI 22 endpoint at ${endpoint}. ${error.message || ''}`.trim());
+      continue;
     }
-    response = await fetchPreview(REMOTE_BMI_PREVIEW_ENDPOINT);
-  }
 
-  let payload = {};
-  try {
-    payload = await response.json();
-  } catch (error) {
-    payload = {};
-  }
-
-  if (!response.ok) {
-    if (!configuredEndpoint && endpoint !== REMOTE_BMI_PREVIEW_ENDPOINT && [404, 405, 501].includes(response.status)) {
-      return requestOpenAiBmiPreviewWithEndpoint(REMOTE_BMI_PREVIEW_ENDPOINT, requestBody);
+    let payload = {};
+    try {
+      payload = await response.json();
+    } catch (error) {
+      payload = {};
     }
+
+    if (response.ok) {
+      return payload.imageDataUrl || payload.image_url || payload.url || '';
+    }
+
     const detail = typeof payload.detail === 'string' ? payload.detail : payload.detail?.error?.message;
     const message = [payload.error, detail].filter(Boolean).join(' ') || `Image endpoint returned ${response.status}`;
-    throw new Error(message);
+    lastError = new Error(message);
+
+    const isEndpointDiscoveryFailure = !configuredEndpoint && [404, 405, 501].includes(response.status);
+    if (endpoint === LOCAL_BMI_PREVIEW_ENDPOINT && response.status === 501 && !payload.error) {
+      lastError = new Error('Local port 8082 is serving static files, not the GlowSlim BMI image server. Restart it with newme_server.py and OPENAI_API_KEY.');
+      break;
+    }
+    if (!isEndpointDiscoveryFailure) break;
   }
 
-  return payload.imageDataUrl || payload.image_url || payload.url || '';
+  throw lastError || new Error('Could not reach BMI 22 generation endpoint.');
 }
 
 async function requestOpenAiBmiPreviewWithEndpoint(endpoint, requestBody) {
