@@ -1037,6 +1037,7 @@ svg {
 .upload-card:focus-visible,
 .cta:focus-visible,
 .lean-sync-button:focus-visible,
+.profile-disclosure summary:focus-visible,
 .learn-resource-card:focus-visible,
 .avatar-button:focus-visible,
 .nav-item:focus-visible,
@@ -1063,6 +1064,67 @@ svg {
 .biomarker-row {
   display: grid;
   gap: 8px;
+}
+
+.profile-disclosure {
+  margin-top: 16px;
+  border: 1px solid rgba(220, 231, 229, 0.86);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.72);
+  overflow: hidden;
+}
+
+.profile-disclosure summary {
+  display: flex;
+  min-height: 58px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 16px;
+  cursor: pointer;
+  color: var(--color-ink);
+  font-weight: 850;
+  list-style: none;
+}
+
+.profile-disclosure summary::-webkit-details-marker {
+  display: none;
+}
+
+.profile-disclosure summary::after {
+  content: "+";
+  display: grid;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--color-teal-deep);
+  background: rgba(209, 245, 238, 0.9);
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.profile-disclosure[open] summary::after {
+  content: "-";
+}
+
+.profile-disclosure summary span {
+  min-width: 0;
+}
+
+.profile-disclosure summary small {
+  display: block;
+  margin-top: 3px;
+  color: var(--color-muted);
+  font-size: 0.78rem;
+  font-weight: 740;
+}
+
+.profile-disclosure .profile-form-grid,
+.profile-disclosure .biomarker-grid {
+  margin-top: 0;
+  padding: 0 14px 14px;
 }
 
 .biomarker-row {

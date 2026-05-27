@@ -554,8 +554,7 @@ const storedConsent = readStoredJson(STORAGE_KEYS.consent);
 const storedFoodAgent = readStoredJson(STORAGE_KEYS.foodAgent);
 const storedCommerceAgent = readStoredJson(STORAGE_KEYS.commerceAgent);
 const storedBeta = readStoredJson(STORAGE_KEYS.beta);
-const shouldOpenAppShell = !initialLaunch.hasLaunchParams && (window.location.protocol === 'file:' || !storageUsable);
-const initialStage = shouldOpenAppShell ? 'app' : (initialLaunch.hasLaunchParams || !storedOnboarding ? 'landing' : (!storedSafety || !storedRecommendation ? 'safety' : 'app'));
+const initialStage = 'app';
 
 const appState = {
   stage: initialStage,
@@ -2378,8 +2377,8 @@ function renderLanding() {
           ${badge('Event ready', 'sparkle')}
         </div>
         <div class="cta-row landing-actions">
-          <button class="cta" type="button" data-action="start-onboarding">${icon('sparkle')} Start my event plan</button>
-          <button class="cta secondary" type="button" data-action="start-safety-path">${icon('shield')} Check if this is safe for me</button>
+          <button class="cta" type="button" data-action="start-onboarding">${icon('sparkle')} Open GlowSlim</button>
+          <button class="cta secondary" type="button" data-action="start-safety-path">${icon('user')} Edit my Profile</button>
         </div>
       </header>
       ${card(`
@@ -2393,13 +2392,13 @@ function renderLanding() {
         </div>
       `, 'feature')}
       ${card(`
-        <p class="section-label">Choose your timeline later</p>
+        <p class="section-label">Setup stays optional</p>
         <div class="plan-chip-grid">
           <span class="plan-chip">30-Day Debloat</span>
           <span class="plan-chip">60-Day Shape Shift</span>
           <span class="plan-chip">90-Day Wedding Slim</span>
         </div>
-        <p class="subtle">${escapeHtml(APP_NAME)} will recommend a plan from your occasion date and safety path. Prescription support is never self-serve.</p>
+        <p class="subtle">${escapeHtml(APP_NAME)} starts with sensible defaults. You can edit name, goal, health context, and biomarkers from Profile whenever needed.</p>
       `)}
     </div>
   `;
@@ -3143,9 +3142,9 @@ function renderProfile() {
       ${card(`
         <div class="card-title-row">
           <div>
-            <p class="section-label">Profile inputs</p>
-            <h2>${escapeHtml(profile.goal)}</h2>
-            <p class="subtle">These inputs personalize the event timeline, safety context, and visual-progress plan.</p>
+            <p class="section-label">Plan essentials</p>
+            <h2>${escapeHtml(profile.goal)} · ${escapeHtml(profile.daysLeft)} days</h2>
+            <p class="subtle">A few defaults are enough to start. Update only what has changed.</p>
           </div>
           <span class="icon-disc teal">${icon('user')}</span>
         </div>
@@ -3159,14 +3158,6 @@ function renderProfile() {
             <input class="text-input" type="number" min="0" max="365" value="${escapeHtml(profile.daysLeft)}" data-profile-field="daysLeft">
           </label>
           <label>
-            <span class="field-label">Age</span>
-            <input class="text-input" type="number" min="13" max="100" value="${escapeHtml(profile.age)}" data-profile-field="age">
-          </label>
-          <label>
-            <span class="field-label">Gender</span>
-            <select class="text-input" data-profile-field="gender">${genderOptions}</select>
-          </label>
-          <label>
             <span class="field-label">Weight kg</span>
             <input class="text-input" type="number" min="30" max="220" step="0.1" value="${escapeHtml(profile.weight)}" data-profile-field="weight">
           </label>
@@ -3174,26 +3165,48 @@ function renderProfile() {
             <span class="field-label">Height cm</span>
             <input class="text-input" type="number" min="120" max="230" value="${escapeHtml(profile.height)}" data-profile-field="height">
           </label>
-          <label>
-            <span class="field-label">Critical disease 1</span>
-            <select class="text-input" data-profile-field="criticalDiseasePrimary">${diseaseOptions(profile.criticalDiseasePrimary)}</select>
-          </label>
-          <label>
-            <span class="field-label">Critical disease 2</span>
-            <select class="text-input" data-profile-field="criticalDiseaseSecondary">${diseaseOptions(profile.criticalDiseaseSecondary)}</select>
-          </label>
         </div>
+        <details class="profile-disclosure">
+          <summary>
+            <span>Optional health context</span>
+            <small>Age, gender, and conditions</small>
+          </summary>
+          <div class="profile-form-grid">
+            <label>
+              <span class="field-label">Age</span>
+              <input class="text-input" type="number" min="13" max="100" value="${escapeHtml(profile.age)}" data-profile-field="age">
+            </label>
+            <label>
+              <span class="field-label">Gender</span>
+              <select class="text-input" data-profile-field="gender">${genderOptions}</select>
+            </label>
+            <label>
+              <span class="field-label">Critical disease 1</span>
+              <select class="text-input" data-profile-field="criticalDiseasePrimary">${diseaseOptions(profile.criticalDiseasePrimary)}</select>
+            </label>
+            <label>
+              <span class="field-label">Critical disease 2</span>
+              <select class="text-input" data-profile-field="criticalDiseaseSecondary">${diseaseOptions(profile.criticalDiseaseSecondary)}</select>
+            </label>
+          </div>
+        </details>
       `, 'feature')}
       ${card(`
         <div class="card-title-row">
           <div>
             <p class="section-label">Biomarkers</p>
-            <h2>5 health markers</h2>
-            <p class="subtle">Add values manually or connect Health Data when available.</p>
+            <h2>Optional health markers</h2>
+            <p class="subtle">Connect PharmEasy later, or open this section if you already know the values.</p>
           </div>
           <span class="icon-disc blue">${icon('chart')}</span>
         </div>
-        <div class="biomarker-grid">${biomarkerRows}</div>
+        <details class="profile-disclosure">
+          <summary>
+            <span>Show 5 biomarkers</span>
+            <small>HbA1c, glucose, lipids, TSH</small>
+          </summary>
+          <div class="biomarker-grid">${biomarkerRows}</div>
+        </details>
         <p class="privacy-note">${icon('lock')} Health data is private in this prototype and never shared with partners by default.</p>
       `)}
       <div class="profile-sync-footer">
@@ -4060,6 +4073,54 @@ function focusScreenTop() {
   screen.focus();
 }
 
+function ensureAppShellDefaults() {
+  appState.profile = migrateProfileState(appState.profile, {
+    onboarding: appState.onboarding,
+    safety: appState.safety
+  });
+  syncProfileToPlanInputs(appState.profile);
+
+  if (!appState.recommendation) appState.recommendation = buildPlanRecommendation();
+  if (!appState.daily) appState.daily = createDefaultDailyState();
+  if (!appState.progress) appState.progress = createDefaultProgressState();
+  if (!appState.care) appState.care = createDefaultCareState();
+  if (!appState.treatment) appState.treatment = createDefaultTreatmentState();
+  if (!appState.triage) appState.triage = createDefaultTriageState();
+  if (!appState.consent) appState.consent = createDefaultConsentState();
+  if (!appState.foodAgent) appState.foodAgent = createDefaultFoodAgentState();
+  if (!appState.commerceAgent) appState.commerceAgent = createDefaultCommerceAgentState();
+  if (!appState.beta) appState.beta = createDefaultBetaState();
+
+  saveJson(STORAGE_KEYS.attribution, appState.attribution);
+  saveJson(STORAGE_KEYS.onboarding, appState.onboarding);
+  saveJson(STORAGE_KEYS.safety, appState.safety);
+  saveJson(STORAGE_KEYS.recommendation, appState.recommendation);
+  saveJson(STORAGE_KEYS.profile, appState.profile);
+  saveJson(STORAGE_KEYS.daily, appState.daily);
+  saveJson(STORAGE_KEYS.progress, appState.progress);
+  saveJson(STORAGE_KEYS.care, appState.care);
+  saveJson(STORAGE_KEYS.treatment, appState.treatment);
+  saveJson(STORAGE_KEYS.triage, appState.triage);
+  saveJson(STORAGE_KEYS.consent, appState.consent);
+  saveJson(STORAGE_KEYS.foodAgent, appState.foodAgent);
+  saveJson(STORAGE_KEYS.commerceAgent, appState.commerceAgent);
+  saveJson(STORAGE_KEYS.beta, appState.beta);
+}
+
+function enterAppShell(actionName = 'open-app') {
+  ensureAppShellDefaults();
+  logEvent('newme_landing_cta_tapped', { action: actionName });
+  logEvent('newme_onboarding_skipped', {
+    destination: 'profile',
+    partnerId: appState.attribution.partnerId
+  });
+  appState.stage = 'app';
+  activeTab = 'profile';
+  appState.validationMessage = '';
+  render();
+  focusScreenTop();
+}
+
 function validateCurrentStep() {
   appState.validationMessage = '';
 
@@ -4324,23 +4385,13 @@ document.addEventListener('click', async (event) => {
   if (!action) return;
 
   if (action.dataset.action === 'start-onboarding' || action.dataset.action === 'start-safety-path') {
-    if (action.dataset.action === 'start-safety-path') {
-      appState.onboarding.comfortLevel = 'Not sure, want expert advice';
-    }
-    appState.stage = 'onboarding';
-    appState.onboardingStep = 0;
-    appState.validationMessage = '';
-    logEvent('newme_landing_cta_tapped', { action: action.dataset.action });
-    logEvent('newme_onboarding_started');
-    render();
-    focusScreenTop();
+    enterAppShell(action.dataset.action);
+    return;
   }
 
   if (action.dataset.action === 'back-to-landing') {
-    appState.stage = 'landing';
-    appState.validationMessage = '';
-    render();
-    focusScreenTop();
+    enterAppShell(action.dataset.action);
+    return;
   }
 
   if (action.dataset.action === 'next-onboarding') {
@@ -5163,7 +5214,7 @@ document.addEventListener('click', async (event) => {
   if (action.dataset.action === 'reset-demo') {
     Object.values(STORAGE_KEYS).forEach((key) => safeLocalStorageRemove(key));
     profileSheet.close();
-    appState.stage = 'landing';
+    appState.stage = 'app';
     appState.onboardingStep = 0;
     appState.safetyStep = 0;
     appState.recommendation = null;
